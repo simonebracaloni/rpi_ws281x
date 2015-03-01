@@ -49,17 +49,17 @@
 
 #define OSC_FREQ                                 19200000   // crystal frequency
 
-/* 3 colors, 8 bits per byte, 3 symbols per bit + 55uS low for reset signal */
+/* 3 colors, 8 bits per byte, 5 bit per symbols + 55uS low for reset signal */
 #define LED_RESET_uS                             55
-#define LED_BIT_COUNT(leds, freq)                ((leds * 3 * 8 * 3) + ((LED_RESET_uS * \
-                                                  (freq * 3)) / 1000000))
+#define LED_BIT_COUNT(leds, freq)                ((leds * 3 * 8 * 5) + ((LED_RESET_uS * \
+                                                  (freq * 5)) / 1000000))
 
 // Pad out to the nearest uint32 + 32-bits for idle low/high times the number of channels
 #define PWM_BYTE_COUNT(leds, freq)               (((((LED_BIT_COUNT(leds, freq) >> 3) & ~0x7) + 4) + 4) * \
                                                   RPI_PWM_CHANNELS)
 
-#define SYMBOL_HIGH                              0x6  // 1 1 0
-#define SYMBOL_LOW                               0x4  // 1 0 0
+#define SYMBOL_HIGH                              0x1E  // 1 1 1 1 0
+#define SYMBOL_LOW                               0x10  // 1 0 0 0 0
 
 #define ARRAY_SIZE(stuff)                        (sizeof(stuff) / sizeof(stuff[0]))
 
@@ -322,8 +322,8 @@ static int setup_pwm(ws2811_t *ws2811)
 
     stop_pwm(ws2811);
 
-    // Setup the PWM Clock - Use OSC @ 19.2Mhz w/ 3 clocks/tick
-    cm_pwm->div = CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (3 * freq));
+    // Setup the PWM Clock - Use OSC @ 19.2Mhz w/ 5 clocks/tick
+    cm_pwm->div = CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (5 * freq));
     cm_pwm->ctl = CM_PWM_CTL_PASSWD | CM_PWM_CTL_SRC_OSC;
     cm_pwm->ctl = CM_PWM_CTL_PASSWD | CM_PWM_CTL_SRC_OSC | CM_PWM_CTL_ENAB;
     usleep(10);
@@ -714,10 +714,10 @@ int ws2811_render(ws2811_t *ws2811)
 
                     if (channel->invert)
                     {
-                        symbol = ~symbol & 0x7;
+                        symbol = ~symbol & 0x1F;
                     }
-
-                    for (l = 2; l >= 0; l--)               // Symbol
+                    
+                    for (l = 4; l >= 0; l--)               // Symbol
                     {
                         uint32_t *wordptr = &((uint32_t *)pwm_raw)[wordpos];
 
@@ -726,7 +726,7 @@ int ws2811_render(ws2811_t *ws2811)
                         {
                             *wordptr |= (1 << bitpos);
                         }
-
+                        
                         bitpos--;
                         if (bitpos < 0)
                         {
